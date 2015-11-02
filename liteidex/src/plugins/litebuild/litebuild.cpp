@@ -120,6 +120,11 @@ struct BuildBarInfo {
     QList<QAction*>  toolbarActions;
 };
 
+const QString key_gopath_custom = "litebuild-gopath-custom";
+const QString key_gopath_inherit = "litebuild-gopath-inherit";
+const QString key_custom = "litebuild-custom";
+const QString key_config = "litebuild-config";
+
 LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     LiteApi::ILiteBuild(parent),
     m_liteApp(app),
@@ -394,10 +399,21 @@ void LiteBuild::config()
     BuildConfigDialog dlg;
     dlg.setBuild(m_build->id(),m_buildRootPath);
     dlg.setModel(m_liteideModel,m_configModel,m_customModel);
+    QStringList globalGopath = LiteApi::getGOPATH(m_liteApp,false);
+    QStringList customGopath;
+    bool inheritGlobal = true;
+    if (!m_buildRootPath.isEmpty()) {
+        customGopath = buildCustomValue(key_gopath_custom).toStringList();
+        inheritGlobal = buildCustomValue(key_gopath_inherit,true).toBool();
+    }
+    dlg.setBuildRoot(m_buildRootPath);
+    dlg.setGopath(globalGopath,customGopath,inheritGlobal);
     if (dlg.exec() == QDialog::Accepted) {
         QString key;
         if (!m_buildRootPath.isEmpty()) {
             key = "litebuild-custom/"+m_buildRootPath;
+            setBuildCusomValue(key_gopath_custom,dlg.customGopathList());
+            setBuildCusomValue(key_gopath_inherit,dlg.isInheritGlobalGopath());
         }
         for (int i = 0; i < m_customModel->rowCount(); i++) {
             QStandardItem *name = m_customModel->item(i,0);
@@ -505,6 +521,16 @@ bool LiteBuild::isLockBuildRoot() const
 QString LiteBuild::currentBuildPath() const
 {
     return m_buildRootPath;
+}
+
+void LiteBuild::setBuildCusomValue(const QString &key, const QVariant &value)
+{
+    m_liteApp->settings()->setValue(key+"/"+m_buildRootPath,value);
+}
+
+QVariant LiteBuild::buildCustomValue(const QString &key, const QVariant &defValue) const
+{
+    return m_liteApp->settings()->value(key+"/"+m_buildRootPath,defValue);
 }
 
 void LiteBuild::currentEnvChanged(LiteApi::IEnv*)
@@ -697,6 +723,36 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
         env.insert(name,value);
     }
     return env;
+}
+
+void LiteBuild::updateEnvGopath(QProcessEnvironment &sysenv)
+{
+    if (m_buildRootPath.isEmpty()) {
+        return;
+    }
+    QStringList gopath = LiteApi::getGOPATH(m_liteApp,false);
+    bool inheritGopath = this->buildCustomValue(key_gopath_inherit,true).toBool();
+    QStringList customGopath = this->buildCustomValue(key_gopath_custom).toStringList();
+    if (inheritGopath) {
+        gopath.append(customGopath);
+    } else {
+        gopath = customGopath;
+    }
+    gopath.removeDuplicates();
+#ifdef Q_OS_WIN
+    QString sep = ";";
+#else
+    QString sep = ":";
+#endif
+    QStringList pathList;
+    foreach (QString path, gopath) {
+        if (path.startsWith(".")) {
+            path = QDir::cleanPath(m_buildRootPath+"/"+path);
+        }
+        pathList.append(QDir::toNativeSeparators(path));
+    }
+    pathList.removeDuplicates();
+    sysenv.insert("GOPATH",pathList.join(sep));
 }
 
 QMap<QString,QString> LiteBuild::buildEnvMap() const
@@ -1227,6 +1283,9 @@ void LiteBuild::executeCommand(const QString &cmd1, const QString &args, const Q
         return;
     }
     QProcessEnvironment sysenv = LiteApi::getGoEnvironment(m_liteApp);
+
+    this->updateEnvGopath(sysenv);
+
     QString cmd = cmd1.trimmed();
     m_output->setReadOnly(false);
     m_process->setEnvironment(sysenv.toStringList());
@@ -1341,6 +1400,8 @@ void LiteBuild::execAction(const QString &mime, const QString &id)
     QMap<QString,QString> env = buildEnvMap(build,buildFilePath);
 
     QProcessEnvironment sysenv = LiteApi::getGoEnvironment(m_liteApp);
+
+    this->updateEnvGopath(sysenv);
 
     QString cmd = this->envToValue(ba->cmd(),env,sysenv);
     QString args = this->envToValue(ba->args(),env,sysenv);

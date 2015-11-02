@@ -25,6 +25,8 @@
 #include "ui_buildconfigdialog.h"
 
 #include <QAbstractItemModel>
+#include <QDir>
+#include <QFileDialog>
 #include <QDebug>
 //lite_memory_check_begin
 #if defined(WIN32) && defined(_MSC_VER) &&  defined(_DEBUG)
@@ -53,12 +55,19 @@ BuildConfigDialog::BuildConfigDialog(QWidget *parent) :
     ui->customTableView->resizeColumnsToContents();
     ui->customTableView->verticalHeader()->hide();
 
+    ui->editGlobalGopath->setEnabled(false);
+
     connect(ui->customTableView,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(editCustomeTabView(QModelIndex)));
 }
 
 BuildConfigDialog::~BuildConfigDialog()
 {
     delete ui;
+}
+
+void BuildConfigDialog::setBuildRoot(const QString &root)
+{
+    m_buildRoot = root;
 }
 
 void BuildConfigDialog::editCustomeTabView(QModelIndex index)
@@ -100,4 +109,44 @@ void BuildConfigDialog::setModel(QAbstractItemModel * liteide,QAbstractItemModel
     resizeTableView(ui->liteideTableView);
     resizeTableView(ui->configTableView);
     resizeTableView(ui->customTableView);
+}
+
+void BuildConfigDialog::setGopath(const QStringList &global, const QStringList &custom, bool inheritGlobal)
+{
+    ui->chkInheritGlobalGopath->setChecked(inheritGlobal);
+    ui->editGlobalGopath->clear();
+    foreach (QString path, global) {
+        ui->editGlobalGopath->appendPlainText(path);
+    }
+    ui->editCustomGopath->clear();
+    foreach (QString path, custom) {
+        ui->editCustomGopath->appendPlainText(path);
+    }
+}
+
+bool BuildConfigDialog::isInheritGlobalGopath() const
+{
+    return ui->chkInheritGlobalGopath->isChecked();
+}
+
+QStringList BuildConfigDialog::customGopathList() const
+{
+    QString text = ui->editCustomGopath->toPlainText().trimmed();
+    return text.split("\n",QString::SkipEmptyParts);
+}
+
+void BuildConfigDialog::on_btnClearCustomGopath_clicked()
+{
+    ui->editCustomGopath->clear();
+}
+
+void BuildConfigDialog::on_btnBrowserCustomGopath_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Choose directory to add to GOPATH:"),
+                                                    m_buildRoot,
+                                                    QFileDialog::ShowDirsOnly
+                                                    | QFileDialog::DontResolveSymlinks);
+    if (!dir.isEmpty()) {
+        ui->editCustomGopath->appendPlainText(dir);
+    }
 }

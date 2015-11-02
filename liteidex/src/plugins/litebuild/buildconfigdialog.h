@@ -40,14 +40,24 @@ class BuildConfigDialog : public QDialog
 public:
     explicit BuildConfigDialog(QWidget *parent = 0);
     virtual ~BuildConfigDialog();
+    void setBuildRoot(const QString &root);
     void setBuild(const QString &buildId, const QString &buildFile);
     void setModel(QAbstractItemModel * liteide,QAbstractItemModel * config, QAbstractItemModel * custom);
+    void setGopath(const QStringList &global, const QStringList &custom, bool inheritGlobal);
+    bool isInheritGlobalGopath() const;
+    QStringList customGopathList() const;
 public slots:
     void editCustomeTabView(QModelIndex);
 protected:
     void resizeTableView(QTableView *tableView);
-private:    
+private slots:
+    void on_btnClearCustomGopath_clicked();
+
+    void on_btnBrowserCustomGopath_clicked();
+
+private:
     Ui::BuildConfigDialog *ui;
+    QString     m_buildRoot;
 };
 
 #endif // BUILDCONFIGDIALOG_H

@@ -58,6 +58,7 @@ public:
     virtual void executeCommand(const QString &cmd, const QString &args, const QString &workDir,bool updateExistsTextColor = true, bool activateOutputCheck = true, bool navigate = true, bool command = true);
     virtual bool buildTests();
     QMap<QString,QString> buildEnvMap(LiteApi::IBuild *build, const QString &buildTag) const;
+    void updateEnvGopath(QProcessEnvironment &sysenv);
 public:
     QString envToValue(const QString &value,QMap<QString,QString> &liteEnv,const QProcessEnvironment &env);
     void setCurrentBuild(LiteApi::IBuild *build);
@@ -72,6 +73,8 @@ public:
     void loadBuildType(const QString &mimeType);
     bool isLockBuildRoot() const;
     QString currentBuildPath() const;
+    void setBuildCusomValue(const QString &key, const QVariant &value);
+    QVariant buildCustomValue(const QString &key, const QVariant &defValue = QVariant()) const;
 signals:
     void buildPathChanged(const QString &buildPath);
 public slots:
