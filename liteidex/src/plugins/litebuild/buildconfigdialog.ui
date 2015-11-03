@@ -151,6 +151,13 @@
             </widget>
            </item>
            <item>
+            <widget class="QPushButton" name="btnDirectGopath">
+             <property name="text">
+              <string>Direct GOPATH</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <spacer name="verticalSpacer">
              <property name="orientation">
               <enum>Qt::Vertical</enum>

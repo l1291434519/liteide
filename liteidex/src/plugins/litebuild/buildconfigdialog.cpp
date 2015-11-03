@@ -150,3 +150,21 @@ void BuildConfigDialog::on_btnBrowserCustomGopath_clicked()
         ui->editCustomGopath->appendPlainText(dir);
     }
 }
+
+void BuildConfigDialog::on_btnDirectGopath_clicked()
+{
+    QString path = QDir::fromNativeSeparators(m_buildRoot);
+    QStringList pathList = path.split("/",QString::KeepEmptyParts);
+    int pos = pathList.lastIndexOf("src");
+    // /proj/src c:/src
+    if (pos < 1) {
+        return;
+    }
+    int sum = pathList.length()-pos;
+
+    QString gopath;
+    for (int i = 0; i < sum; i++) {
+        gopath.append("../");
+    }
+    ui->editCustomGopath->setPlainText(gopath);
+}

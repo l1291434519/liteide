@@ -55,6 +55,8 @@ private slots:
 
     void on_btnBrowserCustomGopath_clicked();
 
+    void on_btnDirectGopath_clicked();
+
 private:
     Ui::BuildConfigDialog *ui;
     QString     m_buildRoot;
