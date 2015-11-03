@@ -34,6 +34,8 @@
 
 #define LITEIDE_STORELOCAL "LiteIDE/StoreLocal"
 
+#define LITEAPP_STOREPROJECTLOCALFILE "LiteApp/StoreProjectLocalFile"
+
 #define OPTION_LITEAPP "option/liteapp"
 #define OPTION_LITEOUTPUT  "option/liteoutput"
 

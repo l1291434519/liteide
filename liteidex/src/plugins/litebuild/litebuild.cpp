@@ -32,6 +32,7 @@
 #include "liteeditorapi/liteeditorapi.h"
 #include "qtc_texteditor/basetextdocumentlayout.h"
 #include "../liteeditor/liteeditor_global.h"
+#include "../../liteapp/liteapp_global.h"
 #include <QToolBar>
 #include <QComboBox>
 #include <QAction>
@@ -269,7 +270,8 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     if (m_envManager) {
         connect(m_envManager,SIGNAL(currentEnvChanged(LiteApi::IEnv*)),this,SLOT(currentEnvChanged(LiteApi::IEnv*)));
     }
-    applyOption(OPTION_LITEEDITOR);
+    m_bStoreProjectLocal = m_liteApp->settings()->value(LITEAPP_STOREPROJECTLOCALFILE,false).toBool();
+    //applyOption(OPTION_LITEAPP);
 }
 
 LiteBuild::~LiteBuild()
@@ -518,13 +520,25 @@ void LiteBuild::fmctxGoTool()
     }
 }
 
-void LiteBuild::applyOption(QString /*opt*/)
+void LiteBuild::applyOption(QString opt)
 {
 //    if (opt == OPTION_LITEEDITOR) {
 //        QFont font = m_output->font();
 //        font.setFamily(m_liteApp->settings()->value(EDITOR_FAMILY,font.family()).toString());
 //        m_output->setFont(font);
 //    }
+    if (opt == OPTION_LITEAPP) {
+        m_bStoreProjectLocal = m_liteApp->settings()->value(LITEAPP_STOREPROJECTLOCALFILE,false).toBool();
+        if (!m_buildRootPath.isEmpty()) {
+            if (m_bStoreProjectLocal) {
+                m_localSetting.reset(new QSettings(m_buildRootPath+"/.liteide",QSettings::IniFormat,this));
+            } else {
+                if (!QFileInfo(m_buildRootPath+"/.liteide").exists()) {
+                    m_localSetting.reset(0);
+                }
+            }
+        }
+    }
 }
 
 void LiteBuild::lockBuildRoot(bool b)
@@ -963,7 +977,15 @@ void LiteBuild::loadBuildPath(const QString &buildPath, const QString &buildName
         m_lockBuildRoot->setToolTip(QString("%1 : %2").arg(tr("Lock Build")).arg(buildInfo));
     }
     if (!m_buildRootPath.isEmpty()) {
-        m_localSetting.reset(new QSettings(m_buildRootPath+"/.liteide",QSettings::IniFormat,this));
+        if (m_bStoreProjectLocal) {
+            m_localSetting.reset(new QSettings(m_buildRootPath+"/.liteide",QSettings::IniFormat,this));
+        } else {
+            if (QFileInfo(m_buildRootPath+"/.liteide").exists()) {
+                m_localSetting.reset(new QSettings(m_buildRootPath+"/.liteide",QSettings::IniFormat,this));
+            } else {
+                m_localSetting.reset(0);
+            }
+        }
     } else {
         m_localSetting.reset(0);
     }

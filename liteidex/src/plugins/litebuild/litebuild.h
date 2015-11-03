@@ -95,7 +95,7 @@ public slots:
     void aboutToShowFolderContextMenu(QMenu *menu, LiteApi::FILESYSTEM_CONTEXT_FLAG flag, const QFileInfo &info);
     void fmctxExecuteFile();
     void fmctxGoTool();
-    void applyOption(QString);
+    void applyOption(QString opt);
     void lockBuildRoot(bool b);
 protected:
     QMenu *m_nullMenu;
@@ -130,6 +130,7 @@ protected:
     bool        m_bLockBuildRoot;
     bool        m_bDynamicBuild;
     bool        m_bProjectBuild;
+    bool        m_bStoreProjectLocal;
     QScopedPointer<QSettings>   m_localSetting;
     QMap<QString,QString> m_liteAppInfo;
     QMap<QString,QString> m_editorInfo;
