@@ -209,6 +209,7 @@ void Build::setType(const QString &mimeType)
 void Build::setId(const QString &id)
 {
     m_id = id;
+    m_id.replace(" ","_");
 }
 
 void Build::setWork(const QString &work)

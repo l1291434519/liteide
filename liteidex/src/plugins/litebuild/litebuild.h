@@ -28,6 +28,7 @@
 #include "liteenvapi/liteenvapi.h"
 #include "litebuildapi/litebuildapi.h"
 #include <QTextCursor>
+#include <QScopedPointer>
 
 #define LITEBUILD_TAG "lightbuild/navtag"
 
@@ -73,8 +74,6 @@ public:
     void loadBuildType(const QString &mimeType);
     bool isLockBuildRoot() const;
     QString currentBuildPath() const;
-    void setBuildCusomValue(const QString &key, const QVariant &value);
-    QVariant buildCustomValue(const QString &key, const QVariant &defValue = QVariant()) const;
 signals:
     void buildPathChanged(const QString &buildPath);
 public slots:
@@ -131,6 +130,7 @@ protected:
     bool        m_bLockBuildRoot;
     bool        m_bDynamicBuild;
     bool        m_bProjectBuild;
+    QScopedPointer<QSettings>   m_localSetting;
     QMap<QString,QString> m_liteAppInfo;
     QMap<QString,QString> m_editorInfo;
     QMap<QString,QString> m_buildInfo;

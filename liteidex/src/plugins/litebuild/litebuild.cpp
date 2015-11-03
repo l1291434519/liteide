@@ -120,10 +120,16 @@ struct BuildBarInfo {
     QList<QAction*>  toolbarActions;
 };
 
-const QString key_gopath_custom = "litebuild-gopath-custom";
-const QString key_gopath_inherit = "litebuild-gopath-inherit";
-const QString key_custom = "litebuild-custom";
-const QString key_config = "litebuild-config";
+const QString global_key_gopath_custom = "litebuild-gopath-custom";
+const QString global_key_gopath_inherit = "litebuild-gopath-inherit";
+const QString global_key_build_custom = "litebuild-custom";
+const QString global_key_build_config = "litebuild-config";
+
+const QString local_key_gopath_custom = "litebuild/gopath-custom";
+const QString local_key_gopath_inherit = "litebuild/gopath-inherit";
+const QString local_key_build_custom = "litebuild_custom";
+const QString local_key_build_config = "litebuild_config";
+
 
 LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     LiteApi::ILiteBuild(parent),
@@ -403,25 +409,41 @@ void LiteBuild::config()
     QStringList customGopath;
     bool inheritGlobal = true;
     if (!m_buildRootPath.isEmpty()) {
-        customGopath = buildCustomValue(key_gopath_custom).toStringList();
-        inheritGlobal = buildCustomValue(key_gopath_inherit,true).toBool();
+        if (!m_localSetting.isNull()) {
+            customGopath = m_localSetting->value(local_key_gopath_custom).toStringList();
+            inheritGlobal = m_localSetting->value(local_key_gopath_inherit,true).toBool();
+        } else {
+            customGopath = m_liteApp->settings()->value(global_key_gopath_custom+"/"+m_buildRootPath).toStringList();
+            inheritGlobal = m_liteApp->settings()->value(global_key_gopath_inherit+"/"+m_buildRootPath,true).toBool();
+        }
     }
     dlg.setBuildRoot(m_buildRootPath);
     dlg.setGopath(globalGopath,customGopath,inheritGlobal);
     if (dlg.exec() == QDialog::Accepted) {
-        QString key;
+
         if (!m_buildRootPath.isEmpty()) {
-            key = "litebuild-custom/"+m_buildRootPath;
-            setBuildCusomValue(key_gopath_custom,dlg.customGopathList());
-            setBuildCusomValue(key_gopath_inherit,dlg.isInheritGlobalGopath());
-        }
-        for (int i = 0; i < m_customModel->rowCount(); i++) {
-            QStandardItem *name = m_customModel->item(i,0);
-            QStandardItem *value = m_customModel->item(i,1);
-            //m_customMap.insert(name->text(),value->text());
-            QString id = name->data().toString();
-            if (!key.isEmpty()) {
-                m_liteApp->settings()->setValue(key+"#"+id,value->text());
+            if (!m_localSetting.isNull()) {
+                m_localSetting->setValue(local_key_gopath_custom,dlg.customGopathList());
+                m_localSetting->setValue(local_key_gopath_inherit,dlg.isInheritGlobalGopath());
+            } else {
+                m_liteApp->settings()->setValue(global_key_gopath_custom+"/"+m_buildRootPath,dlg.customGopathList());
+                m_liteApp->settings()->setValue(global_key_gopath_inherit+"/"+m_buildRootPath,dlg.isInheritGlobalGopath());
+            }
+            QString key;
+            if (!m_localSetting.isNull()) {
+                key = local_key_build_custom+"_"+m_build->id();
+            } else {
+                key = global_key_build_custom+"/"+m_buildRootPath;
+            }
+            for (int i = 0; i < m_customModel->rowCount(); i++) {
+                QStandardItem *name = m_customModel->item(i,0);
+                QStandardItem *value = m_customModel->item(i,1);
+                QString id = name->data().toString();
+                if (!m_localSetting.isNull()) {
+                    m_localSetting->setValue(key+"/"+id,value->text());
+                } else {
+                    m_liteApp->settings()->setValue(key+"#"+id,value->text());
+                }
             }
         }
     }
@@ -521,16 +543,6 @@ bool LiteBuild::isLockBuildRoot() const
 QString LiteBuild::currentBuildPath() const
 {
     return m_buildRootPath;
-}
-
-void LiteBuild::setBuildCusomValue(const QString &key, const QVariant &value)
-{
-    m_liteApp->settings()->setValue(key+"/"+m_buildRootPath,value);
-}
-
-QVariant LiteBuild::buildCustomValue(const QString &key, const QVariant &defValue) const
-{
-    return m_liteApp->settings()->value(key+"/"+m_buildRootPath,defValue);
 }
 
 void LiteBuild::currentEnvChanged(LiteApi::IEnv*)
@@ -693,9 +705,13 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
     }
     QString customkey;
     if (!buildFilePath.isEmpty()) {
-        customkey = "litebuild-custom/"+buildFilePath;
+        if (!m_localSetting.isNull()) {
+            customkey = local_key_build_custom+"_"+build->id();
+        } else {
+            customkey = global_key_build_custom+"/"+buildFilePath;
+        }
     }
-    QString configkey = "litebuild-config/"+build->id();
+    QString configkey = global_key_build_config+"/"+build->id();
     foreach(LiteApi::BuildConfig *cf, build->configList()) {
         QString name = cf->name();
         QString value = cf->value();
@@ -713,7 +729,11 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
         QString name = cf->name();
         QString value = cf->value();
         if (!customkey.isEmpty()) {
-            value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
+            if (!m_localSetting.isNull()) {
+                value = m_localSetting->value(customkey+"/"+cf->id(),value).toString();
+            } else {
+                value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
+            }
         }
         QMapIterator<QString,QString> m(env);
         while(m.hasNext()) {
@@ -730,10 +750,20 @@ void LiteBuild::updateEnvGopath(QProcessEnvironment &sysenv)
     if (m_buildRootPath.isEmpty()) {
         return;
     }
-    QStringList gopath = LiteApi::getGOPATH(m_liteApp,false);
-    bool inheritGopath = this->buildCustomValue(key_gopath_inherit,true).toBool();
-    QStringList customGopath = this->buildCustomValue(key_gopath_custom).toStringList();
-    if (inheritGopath) {
+    QStringList gopath = LiteApi::getGOPATH(m_liteApp,false);   
+
+    QStringList customGopath;
+    bool inheritGlobal = true;
+
+    if (!m_localSetting.isNull()) {
+        customGopath = m_localSetting->value(local_key_gopath_custom).toStringList();
+        inheritGlobal = m_localSetting->value(local_key_gopath_inherit,true).toBool();
+    } else {
+        customGopath = m_liteApp->settings()->value(global_key_gopath_custom+"/"+m_buildRootPath).toStringList();
+        inheritGlobal = m_liteApp->settings()->value(global_key_gopath_inherit+"/"+m_buildRootPath,true).toBool();
+    }
+
+    if (inheritGlobal) {
         gopath.append(customGopath);
     } else {
         gopath = customGopath;
@@ -830,14 +860,22 @@ void LiteBuild::updateBuildConfig(IBuild *build)
         m_customModel->removeRows(0,m_customModel->rowCount());
         QString customkey;
         if (!m_buildRootPath.isEmpty()) {
-            customkey = "litebuild-custom/"+m_buildRootPath;
+            if (!m_localSetting.isNull()) {
+                customkey = local_key_build_custom+"_"+build->id();
+            } else {
+                customkey = global_key_build_custom+"/"+m_buildRootPath;
+            }
         }
-        QString configkey = "litebuild-config/"+build->id();
+        QString configkey = global_key_build_config+"/"+build->id();
         foreach(LiteApi::BuildCustom *cf, build->customList()) {
             QString name = cf->name();
             QString value = cf->value();
             if (!customkey.isEmpty()) {
-                value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
+                if (!m_localSetting.isNull()) {
+                    value = m_localSetting->value(customkey+"/"+cf->id(),value).toString();
+                } else {
+                    value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
+                }
             }
             QStandardItem *item = new QStandardItem(name);
             item->setData(cf->id());
@@ -912,6 +950,7 @@ void LiteBuild::loadEditorInfo(const QString &filePath)
 void LiteBuild::loadBuildPath(const QString &buildPath, const QString &buildName, const QString &buildInfo)
 {
     m_buildInfo.clear();
+
     m_buildRootPath = buildPath;
     m_buildRootName = buildName;
     if (buildName.isEmpty()) {
@@ -923,6 +962,12 @@ void LiteBuild::loadBuildPath(const QString &buildPath, const QString &buildName
         m_lockBuildRoot->setText(buildName);
         m_lockBuildRoot->setToolTip(QString("%1 : %2").arg(tr("Lock Build")).arg(buildInfo));
     }
+    if (!m_buildRootPath.isEmpty()) {
+        m_localSetting.reset(new QSettings(m_buildRootPath+"/.liteide",QSettings::IniFormat,this));
+    } else {
+        m_localSetting.reset(0);
+    }
+
     emit buildPathChanged(buildPath);
     if (buildPath.isEmpty()) {
         return;
