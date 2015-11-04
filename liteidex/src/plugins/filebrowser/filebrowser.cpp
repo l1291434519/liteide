@@ -217,9 +217,7 @@ void FileBrowser::currentEditorChanged(LiteApi::IEditor *editor)
 
 void FileBrowser::syncFileModel(bool b)
 {
-    if (b == false) {
-        return;
-    } else {
+    if (b) {
         currentEditorChanged(m_liteApp->editorManager()->currentEditor());
     }
 }
