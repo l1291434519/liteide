@@ -37,7 +37,7 @@ inline QByteArray trimmedRight(const QByteArray &d)
     const char *s = d.data();
     int end = d.size() - 1;
     while (end && isspace(uchar(s[end])))           // skip white space from end
-            end--;
+        end--;
     return d.left(end+1);
 }
 
